@@ -1,0 +1,13 @@
+# folders
+
+/target
+/private
+/tests
+
+# Files
+
+*.env
+*.log
+.DS_Store
+*.knit
+cargo.lock
