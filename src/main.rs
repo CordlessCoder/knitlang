@@ -30,7 +30,10 @@ struct Lexer {
 
 impl Lexer {
     fn new(src: &str) -> Self {
-        Self { input: src.chars().collect(), pos: 0 }
+        Self {
+            input: src.chars().collect(),
+            pos: 0,
+        }
     }
 
     fn peek(&self) -> Option<char> {
@@ -39,13 +42,19 @@ impl Lexer {
 
     fn next(&mut self) -> Option<char> {
         let ch = self.peek();
-        if ch.is_some() { self.pos += 1; }
+        if ch.is_some() {
+            self.pos += 1;
+        }
         ch
     }
 
     fn skip_whitespace(&mut self) {
         while let Some(c) = self.peek() {
-            if c.is_whitespace() { self.next(); } else { break; }
+            if c.is_whitespace() {
+                self.next();
+            } else {
+                break;
+            }
         }
     }
 
@@ -53,7 +62,12 @@ impl Lexer {
         let mut s = String::new();
         s.push(first);
         while let Some(c) = self.peek() {
-            if c.is_alphanumeric() || c == '_' { s.push(c); self.next(); } else { break; }
+            if c.is_alphanumeric() || c == '_' {
+                s.push(c);
+                self.next();
+            } else {
+                break;
+            }
         }
         s
     }
@@ -62,7 +76,12 @@ impl Lexer {
         let mut s = String::new();
         s.push(first);
         while let Some(c) = self.peek() {
-            if c.is_ascii_digit() { s.push(c); self.next(); } else { break; }
+            if c.is_ascii_digit() {
+                s.push(c);
+                self.next();
+            } else {
+                break;
+            }
         }
         s.parse().unwrap_or(0)
     }
@@ -118,10 +137,18 @@ struct Parser {
 }
 
 impl Parser {
-    fn new(tokens: Vec<Token>) -> Self { Self { tokens, pos: 0 } }
+    fn new(tokens: Vec<Token>) -> Self {
+        Self { tokens, pos: 0 }
+    }
 
-    fn peek(&self) -> &Token { &self.tokens[self.pos] }
-    fn next(&mut self) -> &Token { let t = &self.tokens[self.pos]; self.pos += 1; t }
+    fn peek(&self) -> &Token {
+        &self.tokens[self.pos]
+    }
+    fn next(&mut self) -> &Token {
+        let t = &self.tokens[self.pos];
+        self.pos += 1;
+        t
+    }
 
     fn expect_ident(&mut self) -> String {
         match self.next() {
@@ -145,8 +172,16 @@ impl Parser {
         let mut node = self.parse_mul_div();
         loop {
             match self.peek() {
-                Token::Plus => { self.next(); let rhs = self.parse_mul_div(); node = Expr::Binary(Box::new(node), '+', Box::new(rhs)); }
-                Token::Minus => { self.next(); let rhs = self.parse_mul_div(); node = Expr::Binary(Box::new(node), '-', Box::new(rhs)); }
+                Token::Plus => {
+                    self.next();
+                    let rhs = self.parse_mul_div();
+                    node = Expr::Binary(Box::new(node), '+', Box::new(rhs));
+                }
+                Token::Minus => {
+                    self.next();
+                    let rhs = self.parse_mul_div();
+                    node = Expr::Binary(Box::new(node), '-', Box::new(rhs));
+                }
                 _ => break,
             }
         }
@@ -157,8 +192,16 @@ impl Parser {
         let mut node = self.parse_term();
         loop {
             match self.peek() {
-                Token::Star => { self.next(); let rhs = self.parse_term(); node = Expr::Binary(Box::new(node), '*', Box::new(rhs)); }
-                Token::Slash => { self.next(); let rhs = self.parse_term(); node = Expr::Binary(Box::new(node), '/', Box::new(rhs)); }
+                Token::Star => {
+                    self.next();
+                    let rhs = self.parse_term();
+                    node = Expr::Binary(Box::new(node), '*', Box::new(rhs));
+                }
+                Token::Slash => {
+                    self.next();
+                    let rhs = self.parse_term();
+                    node = Expr::Binary(Box::new(node), '/', Box::new(rhs));
+                }
                 _ => break,
             }
         }
@@ -179,12 +222,12 @@ impl Parser {
                 self.next();
                 let name = self.expect_ident();
                 match self.next() {
-                    Token::Equal => {},
+                    Token::Equal => {}
                     other => panic!("Expected = after identifier in cast_on, found {:?}", other),
                 }
                 let expr = self.parse_expr();
                 match self.next() {
-                    Token::Semicolon => {},
+                    Token::Semicolon => {}
                     other => panic!("Expected ; after cast_on statement, found {:?}", other),
                 }
                 Some(Stmt::CastOn(name, expr))
@@ -193,12 +236,12 @@ impl Parser {
                 self.next();
                 let name = self.expect_ident();
                 match self.next() {
-                    Token::Equal => {},
+                    Token::Equal => {}
                     other => panic!("Expected = after identifier in knit, found {:?}", other),
                 }
                 let expr = self.parse_expr();
                 match self.next() {
-                    Token::Semicolon => {},
+                    Token::Semicolon => {}
                     other => panic!("Expected ; after knit statement, found {:?}", other),
                 }
                 Some(Stmt::Knit(name, expr))
@@ -207,7 +250,7 @@ impl Parser {
                 self.next();
                 let expr = self.parse_expr();
                 match self.next() {
-                    Token::Semicolon => {},
+                    Token::Semicolon => {}
                     other => panic!("Expected ; after purl statement, found {:?}", other),
                 }
                 Some(Stmt::Purl(expr))
@@ -216,16 +259,19 @@ impl Parser {
                 self.next();
                 let count = self.parse_expr();
                 match self.next() {
-                    Token::LBrace => {},
+                    Token::LBrace => {}
                     other => panic!("Expected '{{' after repeat count, found {:?}", other),
                 }
                 let mut body = Vec::new();
                 while !matches!(self.peek(), Token::RBrace | Token::EOF) {
-                    if let Some(s) = self.parse_stmt() { body.push(s); }
-                    else { break; }
+                    if let Some(s) = self.parse_stmt() {
+                        body.push(s);
+                    } else {
+                        break;
+                    }
                 }
                 match self.next() {
-                    Token::RBrace => {},
+                    Token::RBrace => {}
                     other => panic!("Expected '}}' after repeat body, found {:?}", other),
                 }
                 Some(Stmt::Repeat(count, body))
@@ -233,7 +279,7 @@ impl Parser {
             Token::BindOff => {
                 self.next();
                 match self.next() {
-                    Token::Semicolon => {},
+                    Token::Semicolon => {}
                     other => panic!("Expected ; after bind_off, found {:?}", other),
                 }
                 Some(Stmt::BindOff)
@@ -246,8 +292,11 @@ impl Parser {
     fn parse(&mut self) -> Vec<Stmt> {
         let mut stmts = Vec::new();
         while !matches!(self.peek(), Token::EOF) {
-            if let Some(s) = self.parse_stmt() { stmts.push(s); }
-            else { break; }
+            if let Some(s) = self.parse_stmt() {
+                stmts.push(s);
+            } else {
+                break;
+            }
         }
         stmts
     }
@@ -258,7 +307,11 @@ struct Interpreter {
 }
 
 impl Interpreter {
-    fn new() -> Self { Self { vars: HashMap::new() } }
+    fn new() -> Self {
+        Self {
+            vars: HashMap::new(),
+        }
+    }
 
     fn eval_expr(&mut self, e: &Expr) -> i64 {
         match e {
@@ -299,7 +352,9 @@ impl Interpreter {
                 let n = self.eval_expr(count_expr);
                 for _ in 0..n {
                     for st in body {
-                        if self.exec_stmt(st) { return true; }
+                        if self.exec_stmt(st) {
+                            return true;
+                        }
                     }
                 }
                 false
@@ -310,7 +365,9 @@ impl Interpreter {
 
     fn run(&mut self, stmts: &[Stmt]) {
         for s in stmts {
-            if self.exec_stmt(s) { break; }
+            if self.exec_stmt(s) {
+                break;
+            }
         }
     }
 }
@@ -320,7 +377,10 @@ fn lex_all(src: &str) -> Vec<Token> {
     let mut tokens = Vec::new();
     loop {
         let t = lx.next_token();
-        if t == Token::EOF { tokens.push(t); break; }
+        if t == Token::EOF {
+            tokens.push(t);
+            break;
+        }
         tokens.push(t);
     }
     tokens
@@ -338,16 +398,23 @@ fn repl() {
     let mut buf = String::new();
     let mut interp = Interpreter::new();
     loop {
-        print!("knit> "); io::stdout().flush().unwrap();
+        print!("knit> ");
+        io::stdout().flush().unwrap();
         buf.clear();
-        if io::stdin().read_line(&mut buf).is_err() { break; }
+        if io::stdin().read_line(&mut buf).is_err() {
+            break;
+        }
         let line = buf.trim();
-        if line == "exit" || line == "quit" { break; }
+        if line == "exit" || line == "quit" {
+            break;
+        }
         // try to parse a single statement
         let tokens = lex_all(line);
         let mut parser = Parser::new(tokens);
         match parser.parse_stmt() {
-            Some(stmt) => { interp.exec_stmt(&stmt); }
+            Some(stmt) => {
+                interp.exec_stmt(&stmt);
+            }
             None => (),
         }
     }
