@@ -20,7 +20,6 @@ enum Token {
     Star,
     Slash,
     Equal,
-    EOF,
 }
 
 struct Lexer {
@@ -86,9 +85,9 @@ impl Lexer {
         s.parse().unwrap_or(0)
     }
 
-    fn next_token(&mut self) -> Token {
+    fn next_token(&mut self) -> Option<Token> {
         self.skip_whitespace();
-        match self.next() {
+        Some(match self.next() {
             Some('{') => Token::LBrace,
             Some('}') => Token::RBrace,
             Some(';') => Token::Semicolon,
@@ -109,9 +108,11 @@ impl Lexer {
                 }
             }
             Some(c) if c.is_ascii_digit() => Token::Number(self.read_number(c)),
-            Some(_) => self.next_token(),
-            None => Token::EOF,
-        }
+            Some(c) => {
+                panic!("Unexpected character: {c}")
+            }
+            None => return None,
+        })
     }
 }
 
@@ -141,25 +142,28 @@ impl Parser {
         Self { tokens, pos: 0 }
     }
 
-    fn peek(&self) -> &Token {
-        &self.tokens[self.pos]
+    fn peek(&self) -> Option<&Token> {
+        self.tokens.get(self.pos)
     }
-    fn next(&mut self) -> &Token {
-        let t = &self.tokens[self.pos];
-        self.pos += 1;
+    fn next(&mut self) -> Option<&Token> {
+        let t = self.tokens.get(self.pos);
+        if t.is_some() {
+            self.pos += 1;
+        }
         t
     }
 
     fn expect_ident(&mut self) -> String {
         match self.next() {
-            Token::Ident(s) => s.clone(),
+            Some(Token::Ident(s)) => s.clone(),
             other => panic!("Expected identifier, found: {:?}", other),
         }
     }
 
+    #[expect(unused)]
     fn expect_number_expr(&mut self) -> Expr {
         match self.next() {
-            Token::Number(n) => Expr::Number(*n),
+            Some(&Token::Number(n)) => Expr::Number(n),
             other => panic!("Expected number, found: {:?}", other),
         }
     }
@@ -172,12 +176,12 @@ impl Parser {
         let mut node = self.parse_mul_div();
         loop {
             match self.peek() {
-                Token::Plus => {
+                Some(Token::Plus) => {
                     self.next();
                     let rhs = self.parse_mul_div();
                     node = Expr::Binary(Box::new(node), '+', Box::new(rhs));
                 }
-                Token::Minus => {
+                Some(Token::Minus) => {
                     self.next();
                     let rhs = self.parse_mul_div();
                     node = Expr::Binary(Box::new(node), '-', Box::new(rhs));
@@ -192,12 +196,12 @@ impl Parser {
         let mut node = self.parse_term();
         loop {
             match self.peek() {
-                Token::Star => {
+                Some(Token::Star) => {
                     self.next();
                     let rhs = self.parse_term();
                     node = Expr::Binary(Box::new(node), '*', Box::new(rhs));
                 }
-                Token::Slash => {
+                Some(Token::Slash) => {
                     self.next();
                     let rhs = self.parse_term();
                     node = Expr::Binary(Box::new(node), '/', Box::new(rhs));
@@ -210,24 +214,24 @@ impl Parser {
 
     fn parse_term(&mut self) -> Expr {
         match self.next() {
-            Token::Number(n) => Expr::Number(*n),
-            Token::Ident(name) => Expr::Var(name.clone()),
+            Some(Token::Number(n)) => Expr::Number(*n),
+            Some(Token::Ident(name)) => Expr::Var(name.clone()),
             other => panic!("Unexpected token in term: {:?}", other),
         }
     }
 
     fn parse_stmt(&mut self) -> Option<Stmt> {
-        match self.peek() {
+        match self.peek()? {
             Token::CastOn => {
                 self.next();
                 let name = self.expect_ident();
                 match self.next() {
-                    Token::Equal => {}
+                    Some(Token::Equal) => {}
                     other => panic!("Expected = after identifier in cast_on, found {:?}", other),
                 }
                 let expr = self.parse_expr();
                 match self.next() {
-                    Token::Semicolon => {}
+                    Some(Token::Semicolon) => {}
                     other => panic!("Expected ; after cast_on statement, found {:?}", other),
                 }
                 Some(Stmt::CastOn(name, expr))
@@ -236,12 +240,12 @@ impl Parser {
                 self.next();
                 let name = self.expect_ident();
                 match self.next() {
-                    Token::Equal => {}
+                    Some(Token::Equal) => {}
                     other => panic!("Expected = after identifier in knit, found {:?}", other),
                 }
                 let expr = self.parse_expr();
                 match self.next() {
-                    Token::Semicolon => {}
+                    Some(Token::Semicolon) => {}
                     other => panic!("Expected ; after knit statement, found {:?}", other),
                 }
                 Some(Stmt::Knit(name, expr))
@@ -250,7 +254,7 @@ impl Parser {
                 self.next();
                 let expr = self.parse_expr();
                 match self.next() {
-                    Token::Semicolon => {}
+                    Some(Token::Semicolon) => {}
                     other => panic!("Expected ; after purl statement, found {:?}", other),
                 }
                 Some(Stmt::Purl(expr))
@@ -259,11 +263,11 @@ impl Parser {
                 self.next();
                 let count = self.parse_expr();
                 match self.next() {
-                    Token::LBrace => {}
+                    Some(Token::LBrace) => {}
                     other => panic!("Expected '{{' after repeat count, found {:?}", other),
                 }
                 let mut body = Vec::new();
-                while !matches!(self.peek(), Token::RBrace | Token::EOF) {
+                while !matches!(self.peek(), Some(Token::RBrace)) {
                     if let Some(s) = self.parse_stmt() {
                         body.push(s);
                     } else {
@@ -271,7 +275,7 @@ impl Parser {
                     }
                 }
                 match self.next() {
-                    Token::RBrace => {}
+                    Some(Token::RBrace) => {}
                     other => panic!("Expected '}}' after repeat body, found {:?}", other),
                 }
                 Some(Stmt::Repeat(count, body))
@@ -279,19 +283,18 @@ impl Parser {
             Token::BindOff => {
                 self.next();
                 match self.next() {
-                    Token::Semicolon => {}
+                    Some(Token::Semicolon) => {}
                     other => panic!("Expected ; after bind_off, found {:?}", other),
                 }
                 Some(Stmt::BindOff)
             }
-            Token::EOF => None,
             other => panic!("Unknown statement start: {:?}", other),
         }
     }
 
     fn parse(&mut self) -> Vec<Stmt> {
         let mut stmts = Vec::new();
-        while !matches!(self.peek(), Token::EOF) {
+        while self.peek().is_some() {
             if let Some(s) = self.parse_stmt() {
                 stmts.push(s);
             } else {
@@ -375,13 +378,8 @@ impl Interpreter {
 fn lex_all(src: &str) -> Vec<Token> {
     let mut lx = Lexer::new(src);
     let mut tokens = Vec::new();
-    loop {
-        let t = lx.next_token();
-        if t == Token::EOF {
-            tokens.push(t);
-            break;
-        }
-        tokens.push(t);
+    while let Some(token) = lx.next_token() {
+        tokens.push(token);
     }
     tokens
 }
@@ -404,6 +402,10 @@ fn repl() {
         if io::stdin().read_line(&mut buf).is_err() {
             break;
         }
+        if buf.is_empty() {
+            // Reached EOF
+            break;
+        }
         let line = buf.trim();
         if line == "exit" || line == "quit" {
             break;
@@ -411,11 +413,8 @@ fn repl() {
         // try to parse a single statement
         let tokens = lex_all(line);
         let mut parser = Parser::new(tokens);
-        match parser.parse_stmt() {
-            Some(stmt) => {
-                interp.exec_stmt(&stmt);
-            }
-            None => (),
+        if let Some(stmt) = parser.parse_stmt() {
+            interp.exec_stmt(&stmt);
         }
     }
 }
@@ -436,7 +435,7 @@ struct Args {
 }
 
 fn main() {
-    let args = <Args as clap::Parser>::try_parse().unwrap();
+    let args = <Args as clap::Parser>::parse();
 
     if let Some(name) = args.example {
         let path = format!("examples/{}.knit", name);
