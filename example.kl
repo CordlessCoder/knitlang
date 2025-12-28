@@ -1,0 +1,6 @@
+cast_on stitches = 0;
+repeat 3 {
+  knit stitches = stitches + 1;
+  purl stitches;
+}
+bind_off;
